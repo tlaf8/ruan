@@ -6,6 +6,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 
+#[derive(Clone, Copy)]
 enum Direction {
     Up,
     Down,
@@ -18,7 +19,7 @@ struct Position {
     y: i16,
     dir: Direction,
     typed: String,
-    trail: Vec<(i16, i16, char)>,
+    trail: Vec<(i16, i16, char, Direction)>,
 }
 
 fn main() -> Result<()> {
@@ -46,6 +47,19 @@ fn main() -> Result<()> {
                 match key.code {
                     KeyCode::Char('q') => break,
 
+                    KeyCode::Backspace => {
+                        if let Some((x, y, _, _)) = pos.trail.pop() {
+                            pos.x = x;
+                            pos.y = y;
+                            pos.typed.pop();
+
+                            pos.dir = match pos.trail.last() {
+                                Some((_, _, _, dir)) => *dir,
+                                None => Direction::Right,
+                            };
+                        }
+                    }
+
                     KeyCode::Char(c) => {
                         if !c.is_ascii_lowercase() {
                             continue;
@@ -63,7 +77,7 @@ fn main() -> Result<()> {
                             pos.dir = Direction::Right;
                         }
 
-                        pos.trail.push((pos.x, pos.y, c));
+                        pos.trail.push((pos.x, pos.y, c, pos.dir));
 
                         match pos.dir {
                             Direction::Up => pos.y -= 1,
@@ -83,7 +97,7 @@ fn main() -> Result<()> {
             let area = frame.area();
             let buffer = frame.buffer_mut();
 
-            for &(x, y, c) in &pos.trail {
+            for &(x, y, c, _) in &pos.trail {
                 if x >= 0 && y >= 0 {
                     let x = x as u16;
                     let y = y as u16;
