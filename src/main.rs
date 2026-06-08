@@ -1,4 +1,4 @@
-use std::{io, time::Duration};
+use std::{io, time::Duration, time::Instant};
 use anyhow::Result;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use ratatui::style::{Color, Modifier, Style};
@@ -35,6 +35,7 @@ fn main() -> Result<()> {
     enable_raw_mode()?;
 
     let mut cursor = true;
+    let mut last_blink = Instant::now();
     let mut terminal = Terminal::new(
         CrosstermBackend::new(
             io::stdout()
@@ -52,7 +53,12 @@ fn main() -> Result<()> {
     };
 
     loop {
-        if event::poll(Duration::from_millis(500))? {
+        if last_blink.elapsed() >= Duration::from_millis(500) {
+            cursor = !cursor;
+            last_blink = Instant::now();
+        }
+
+        if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
                     continue;
@@ -157,13 +163,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            if cursor {
-                buffer[(center_x as u16, center_y as u16)].set_char('_');
-                cursor = false;
-            } else {
-                buffer[(center_x as u16, center_y as u16)].set_char(' ');
-                cursor = true;
-            }
+            buffer[(center_x as u16, center_y as u16)].set_char(if cursor { '_' } else { ' ' });
 
         })?;
     }
