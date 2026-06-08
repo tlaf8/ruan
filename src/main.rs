@@ -5,6 +5,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
+use ratatui::style::{Color, Modifier, Style};
 
 #[derive(Clone, Copy)]
 enum Direction {
@@ -14,12 +15,20 @@ enum Direction {
     Right,
 }
 
+struct TrailItem {
+    x: i16,
+    y: i16,
+    ch: char,
+    dir: Direction,
+    highlighted: bool,
+}
+
 struct Position {
     x: i16,
     y: i16,
     dir: Direction,
     typed: String,
-    trail: Vec<(i16, i16, char, Direction)>,
+    trail: Vec<TrailItem>,
 }
 
 fn main() -> Result<()> {
@@ -48,13 +57,13 @@ fn main() -> Result<()> {
                     KeyCode::Char('q') => break,
 
                     KeyCode::Backspace => {
-                        if let Some((x, y, _, _)) = pos.trail.pop() {
-                            pos.x = x;
-                            pos.y = y;
+                        if let Some(node) = pos.trail.pop() {
+                            pos.x = node.x;
+                            pos.y = node.y;
                             pos.typed.pop();
 
                             pos.dir = match pos.trail.last() {
-                                Some((_, _, _, dir)) => *dir,
+                                Some(node) => node.dir,
                                 None => Direction::Right,
                             };
                         }
@@ -67,17 +76,37 @@ fn main() -> Result<()> {
 
                         pos.typed.push(c);
 
-                        if pos.typed.ends_with("up") {
+                        let highlighted_word_len = if pos.typed.ends_with("up") {
                             pos.dir = Direction::Up;
+                            Some(2)
                         } else if pos.typed.ends_with("down") {
                             pos.dir = Direction::Down;
+                            Some(4)
                         } else if pos.typed.ends_with("left") {
                             pos.dir = Direction::Left;
+                            Some(4)
                         } else if pos.typed.ends_with("right") {
                             pos.dir = Direction::Right;
-                        }
+                            Some(5)
+                        } else {
+                            None
+                        };
 
-                        pos.trail.push((pos.x, pos.y, c, pos.dir));
+                        pos.trail.push(TrailItem {
+                            x: pos.x,
+                            y: pos.y,
+                            ch: c,
+                            dir: pos.dir,
+                            highlighted: false,
+                        });
+
+                        if let Some(word_len) = highlighted_word_len {
+                            let start = pos.trail.len().saturating_sub(word_len);
+
+                            for trail_item in &mut pos.trail[start..] {
+                                trail_item.highlighted = true;
+                            }
+                        }
 
                         match pos.dir {
                             Direction::Up => pos.y -= 1,
@@ -97,13 +126,22 @@ fn main() -> Result<()> {
             let area = frame.area();
             let buffer = frame.buffer_mut();
 
-            for &(x, y, c, _) in &pos.trail {
-                if x >= 0 && y >= 0 {
-                    let x = x as u16;
-                    let y = y as u16;
+            for node in &pos.trail {
+                if node.x >= 0 && node.y >= 0 {
+                    let x = node.x as u16;
+                    let y = node.y as u16;
 
                     if x < area.width && y < area.height {
-                        buffer[(x, y)].set_char(c);
+                        let cell = &mut buffer[(x, y)];
+                        cell.set_char(node.ch);
+
+                        if node.highlighted {
+                            cell.set_style(
+                                Style::default()
+                                    .fg(Color::Yellow)
+                                    .add_modifier(Modifier::BOLD),
+                            );
+                        }
                     }
                 }
             }
