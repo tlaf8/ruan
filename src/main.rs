@@ -125,40 +125,34 @@ fn main() -> Result<()> {
         terminal.draw(|frame| {
             let area = frame.area();
             let buffer = frame.buffer_mut();
+            let center_x = area.width as i32 / 2;
+            let center_y = area.height as i32 / 2;
 
             for node in &pos.trail {
-                if node.x >= 0 && node.y >= 0 {
-                    let x = node.x as u16;
-                    let y = node.y as u16;
+                let screen_x = node.x as i32 - pos.x as i32 + center_x;
+                let screen_y = node.y as i32 - pos.y as i32 + center_y;
 
-                    if x < area.width && y < area.height {
-                        let cell = &mut buffer[(x, y)];
-                        cell.set_char(node.ch);
+                if screen_x >= 0
+                    && screen_y >= 0
+                    && screen_x < area.width as i32
+                    && screen_y < area.height as i32
+                {
+                    let x = screen_x as u16;
+                    let y = screen_y as u16;
+                    let cell = &mut buffer[(x, y)];
+                    cell.set_char(node.ch);
 
-                        if node.highlighted {
-                            cell.set_style(
-                                Style::default()
-                                    .fg(Color::Yellow)
-                                    .add_modifier(Modifier::BOLD),
-                            );
-                        }
+                    if node.highlighted {
+                        cell.set_style(
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        );
                     }
                 }
             }
 
-            if pos.x >= 0 && pos.y >= 0 {
-                let x = pos.x as u16;
-                let y = pos.y as u16;
-
-                if x < area.width && y < area.height {
-                    match pos.dir {
-                        Direction::Up => { buffer[(x, y)].set_char('_'); }, 
-                        Direction::Down => { buffer[(x, y)].set_char('_'); }, 
-                        Direction::Left => { buffer[(x, y)].set_char('_'); }, 
-                        Direction::Right => { buffer[(x, y)].set_char('_'); }, 
-                    }
-                }
-            }
+            buffer[(center_x as u16, center_y as u16)].set_char('_');
         })?;
     }
 
