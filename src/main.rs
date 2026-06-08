@@ -1,11 +1,11 @@
 use std::{io, time::Duration};
 use anyhow::Result;
 use ratatui::{backend::CrosstermBackend, Terminal};
-use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
-    terminal::{disable_raw_mode, enable_raw_mode},
-};
 use ratatui::style::{Color, Modifier, Style};
+use crossterm::{
+    event::{self, Event, KeyCode, KeyEventKind}, 
+    terminal::{disable_raw_mode, enable_raw_mode}
+};
 
 #[derive(Clone, Copy)]
 enum Direction {
@@ -34,7 +34,13 @@ struct Position {
 fn main() -> Result<()> {
     enable_raw_mode()?;
 
-    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
+    let mut cursor = true;
+    let mut terminal = Terminal::new(
+        CrosstermBackend::new(
+            io::stdout()
+        )
+    )?;
+
     terminal.clear()?;
 
     let mut pos = Position {
@@ -46,8 +52,7 @@ fn main() -> Result<()> {
     };
 
     loop {
-        // Handle input events
-        if event::poll(Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(500))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
                     continue;
@@ -152,7 +157,14 @@ fn main() -> Result<()> {
                 }
             }
 
-            buffer[(center_x as u16, center_y as u16)].set_char('_');
+            if cursor {
+                buffer[(center_x as u16, center_y as u16)].set_char('_');
+                cursor = false;
+            } else {
+                buffer[(center_x as u16, center_y as u16)].set_char(' ');
+                cursor = true;
+            }
+
         })?;
     }
 
