@@ -1,35 +1,14 @@
 use std::{io, time::Duration, time::Instant};
 use anyhow::Result;
-use ratatui::{backend::CrosstermBackend, Terminal};
-use ratatui::style::{Color, Modifier, Style};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind}, 
     terminal::{disable_raw_mode, enable_raw_mode}
 };
+use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::style::{Color, Modifier, Style};
 
-#[derive(Clone, Copy)]
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-struct TrailItem {
-    x: i16,
-    y: i16,
-    ch: char,
-    dir: Direction,
-    highlighted: bool,
-}
-
-struct Position {
-    x: i16,
-    y: i16,
-    dir: Direction,
-    typed: String,
-    trail: Vec<TrailItem>,
-}
+mod model;
+use model::{Direction, Position, TrailItem};
 
 fn main() -> Result<()> {
     enable_raw_mode()?;
@@ -44,13 +23,7 @@ fn main() -> Result<()> {
 
     terminal.clear()?;
 
-    let mut pos = Position {
-        y: 0,
-        x: 0,
-        dir: Direction::Right,
-        typed: String::new(),
-        trail: Vec::new(),
-    };
+    let mut pos = Position::new();
 
     loop {
         if last_blink.elapsed() >= Duration::from_millis(500) {
