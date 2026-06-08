@@ -1,4 +1,4 @@
-use std::{io, time::Duration, time::Instant};
+use std::{io, time::Duration};
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind}, 
@@ -7,14 +7,17 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use ratatui::style::{Color, Modifier, Style};
 
-mod model;
-use model::{Direction, Position, TrailItem};
+mod trail;
+use trail::{Position};
+
+mod cursor;
+use cursor::{Cursor};
 
 fn main() -> Result<()> {
     enable_raw_mode()?;
 
-    let mut cursor = true;
-    let mut last_blink = Instant::now();
+    let mut cursor = Cursor::new();
+    let mut pos = Position::new();
     let mut terminal = Terminal::new(
         CrosstermBackend::new(
             io::stdout()
@@ -23,13 +26,8 @@ fn main() -> Result<()> {
 
     terminal.clear()?;
 
-    let mut pos = Position::new();
-
     loop {
-        if last_blink.elapsed() >= Duration::from_millis(500) {
-            cursor = !cursor;
-            last_blink = Instant::now();
-        }
+        cursor.update();
 
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
@@ -40,67 +38,19 @@ fn main() -> Result<()> {
                 match key.code {
                     KeyCode::Char('q') => break,
 
-                    KeyCode::Backspace => {
-                        if let Some(node) = pos.trail.pop() {
-                            pos.x = node.x;
-                            pos.y = node.y;
-                            pos.typed.pop();
-
-                            pos.dir = match pos.trail.last() {
-                                Some(node) => node.dir,
-                                None => Direction::Right,
-                            };
-                        }
-                    }
+                    KeyCode::Backspace => { 
+                        pos.pop_single(); 
+                    },
 
                     KeyCode::Char(c) => {
                         if !c.is_ascii_lowercase() {
                             continue;
                         }
 
-                        pos.typed.push(c);
+                        pos.push(c);
+                    },
 
-                        let highlighted_word_len = if pos.typed.ends_with("up") {
-                            pos.dir = Direction::Up;
-                            Some(2)
-                        } else if pos.typed.ends_with("down") {
-                            pos.dir = Direction::Down;
-                            Some(4)
-                        } else if pos.typed.ends_with("left") {
-                            pos.dir = Direction::Left;
-                            Some(4)
-                        } else if pos.typed.ends_with("right") {
-                            pos.dir = Direction::Right;
-                            Some(5)
-                        } else {
-                            None
-                        };
-
-                        pos.trail.push(TrailItem {
-                            x: pos.x,
-                            y: pos.y,
-                            ch: c,
-                            dir: pos.dir,
-                            highlighted: false,
-                        });
-
-                        if let Some(word_len) = highlighted_word_len {
-                            let start = pos.trail.len().saturating_sub(word_len);
-
-                            for trail_item in &mut pos.trail[start..] {
-                                trail_item.highlighted = true;
-                            }
-                        }
-
-                        match pos.dir {
-                            Direction::Up => pos.y -= 1,
-                            Direction::Down => pos.y += 1,
-                            Direction::Left => pos.x -= 1,
-                            Direction::Right => pos.x += 1,
-                        }
-                    }
-
-                    _ => {}
+                    _ => {},
                 }
             }
         }
@@ -136,7 +86,8 @@ fn main() -> Result<()> {
                 }
             }
 
-            buffer[(center_x as u16, center_y as u16)].set_char(if cursor { '_' } else { ' ' });
+            buffer[(center_x as u16, center_y as u16)]
+                .set_char(if cursor.visible { '█' } else { ' ' });
 
         })?;
     }
